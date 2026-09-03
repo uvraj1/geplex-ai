@@ -90,11 +90,12 @@ def update_cloud_deployment(tunnel_url):
     os.environ["GEPLEX_API_URL"] = tunnel_url
     token_file = os.path.join(REPO_ROOT, ".cloudflare_token")
     if os.path.exists(token_file):
-        with open(token_file, "r", encoding="utf-8") as f:
-            for line in f:
-                if "=" in line:
-                    k, v = line.strip().split("=", 1)
-                    os.environ[k] = v
+        with open(token_file, "r", encoding="utf-8") as tf:
+            os.environ["CLOUDFLARE_API_TOKEN"] = tf.read().strip()
+    account_file = os.path.join(REPO_ROOT, ".cloudflare_account_id")
+    if os.path.exists(account_file):
+        with open(account_file, "r", encoding="utf-8") as af:
+            os.environ["CLOUDFLARE_ACCOUNT_ID"] = af.read().strip()
     
     build_script = os.path.join(REPO_ROOT, "scripts", "build-cloudflare-dist.ps1")
     subprocess.run(["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", build_script], cwd=REPO_ROOT)

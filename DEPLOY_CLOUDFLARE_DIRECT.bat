@@ -17,11 +17,8 @@ if %ERRORLEVEL% NEQ 0 (
 
 echo.
 echo [2/2] Deploying directly to Cloudflare Pages...
-if exist ".\.cloudflare_token" (
-    for /f "usebackq tokens=1,* delims==" %%A in (".cloudflare_token") do (
-        set "%%A=%%B"
-    )
-)
+if exist ".cloudflare_token" set /p CLOUDFLARE_API_TOKEN=<.cloudflare_token
+if exist ".cloudflare_account_id" set /p CLOUDFLARE_ACCOUNT_ID=<.cloudflare_account_id
 
 call ".\node_modules\.bin\wrangler.cmd" pages deploy dist --project-name geplex --commit-dirty=true
 if %ERRORLEVEL% NEQ 0 (
