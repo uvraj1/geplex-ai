@@ -1351,6 +1351,20 @@ function initializeEventListeners() {
     userBarAdmin.addEventListener('click', () => adminModule.open());
   }
 
+  // Populate user bar from Firebase if available
+  const fbUserRaw = localStorage.getItem('geplex-firebase-user');
+  if (fbUserRaw) {
+    try {
+      const fb = JSON.parse(fbUserRaw);
+      const userBarName = el('user-bar-name');
+      const userBarAvatar = el('user-bar-avatar');
+      const displayName = fb.displayName || fb.email || 'User';
+      if (userBarName) userBarName.textContent = displayName;
+      if (userBarAvatar) userBarAvatar.textContent = displayName.charAt(0).toUpperCase();
+      document.body.classList.add('is-authenticated');
+    } catch (_) {}
+  }
+
   // Fetch auth status — populate user bar and show admin button if admin
   fetch(`${API_BASE}/api/auth/status`, { credentials: 'same-origin' })
     .then(r => r.json())

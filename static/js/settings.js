@@ -1953,10 +1953,25 @@ async function initShortcuts() {
    INIT & REFRESH
    ═══════════════════════════════════════════ */
 function initAccount() {
-  // Populate user info
+  // Populate user info from Firebase if available
+  const fbUserRaw = localStorage.getItem('geplex-firebase-user');
+  if (fbUserRaw) {
+    try {
+      const fb = JSON.parse(fbUserRaw);
+      const nameEl = el('settings-account-username');
+      const roleEl = el('settings-account-role');
+      const avatarEl = el('settings-account-avatar');
+      const displayName = fb.displayName || fb.email || 'Firebase User';
+      if (nameEl) nameEl.textContent = displayName;
+      if (roleEl) roleEl.textContent = 'Firebase Verified';
+      if (avatarEl) avatarEl.textContent = displayName[0].toUpperCase();
+    } catch (_) {}
+  }
+
   fetch('/api/auth/status', { credentials: 'same-origin' })
-    .then(r => r.json())
+    .then(r => r.ok ? r.json() : null)
     .then(d => {
+      if (!d) return;
       const nameEl = el('settings-account-username');
       const roleEl = el('settings-account-role');
       const avatarEl = el('settings-account-avatar');
