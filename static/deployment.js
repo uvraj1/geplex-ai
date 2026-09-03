@@ -23,7 +23,7 @@
       else input = url;
     }
     init = init || {};
-    if (!init.credentials) init.credentials = 'include';
+    init.credentials = 'include';
     return nativeFetch(input, init);
   };
 })();

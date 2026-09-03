@@ -1,7 +1,7 @@
 // Public Firebase web configuration for the GepLex Google sign-in client.
 // Override this file during Cloudflare builds with GEPLEX_FIREBASE_CONFIG_JSON.
 window.GEPLEX_DEPLOYMENT = {
-  apiBase: "",
+  apiBase: "https://geplex-ai.onrender.com",
   firebaseConfig: {
     apiKey: "AIzaSyCvefrQ-bJZ_mr97j_aLiYptlfKYb3blAs",
     authDomain: "geplex-ai.firebaseapp.com",

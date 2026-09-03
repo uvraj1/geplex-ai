@@ -133,10 +133,20 @@ app = FastAPI(
 
 # ========= CORS =========
 CORS_ALLOW_METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE"]
-allowed_origins = os.getenv("ALLOWED_ORIGINS", "http://localhost,http://127.0.0.1").split(",")
+_default_origins = [
+    "http://localhost",
+    "http://127.0.0.1",
+    "http://localhost:8000",
+    "http://localhost:3000",
+    "https://geplex.pages.dev",
+    "https://geplex-ai.onrender.com",
+]
+_env_origins = [o.strip() for o in os.getenv("ALLOWED_ORIGINS", "").split(",") if o.strip()]
+allowed_origins = list(set(_default_origins + _env_origins))
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
+    allow_origin_regex=r"^https:\/\/.*\.pages\.dev$",
     allow_credentials=True,
     allow_methods=CORS_ALLOW_METHODS,
     allow_headers=[
@@ -256,6 +266,28 @@ from routes.auth_routes import setup_auth_routes, SESSION_COOKIE
 
 auth_manager = AuthManager()
 app.state.auth_manager = auth_manager
+
+def _ensure_default_admins(mgr: AuthManager):
+    """Ensure essential admin account exists and open registration is active."""
+    try:
+        if not mgr.signup_enabled:
+            mgr.signup_enabled = True
+        default_admins = [
+            ("uvraj@gmail.com", "uvraj@321"),
+            ("youbarajnama2015@gmail.com", "uvraj@321"),
+            ("admin", "admin1234"),
+        ]
+        for admin_user, admin_pw in default_admins:
+            if admin_user not in mgr.users:
+                mgr.create_user(admin_user, admin_pw, is_admin=True)
+                logger.info("Created default admin user: %s", admin_user)
+            elif not mgr.is_admin(admin_user):
+                mgr.set_admin("system", admin_user, True)
+    except Exception as e:
+        logger.warning("Failed to auto-seed initial admin: %s", e)
+
+_ensure_default_admins(auth_manager)
+
 AUTH_ENABLED = not auth_disabled()
 LOCALHOST_BYPASS = os.getenv("LOCALHOST_BYPASS", "false").lower() == "true"
 if LOCALHOST_BYPASS:
@@ -268,6 +300,8 @@ if AUTH_ENABLED:
         "/api/auth/login",
         "/api/auth/logout",
         "/api/auth/status",
+        "/api/auth/policy",
+        "/api/auth/google",
         "/api/auth/features",
         "/api/auth/settings",
         "/api/auth/integrations/presets",

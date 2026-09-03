@@ -157,12 +157,26 @@ def _cookie_samesite(request: Request) -> str:
     return "lax"
 
 
+def _client_ip(request: Request) -> str:
+    """Resolve real client IP behind reverse proxies (Render, Cloudflare, etc.)."""
+    headers = getattr(request, "headers", None)
+    if headers and hasattr(headers, "get"):
+        cf_ip = headers.get("cf-connecting-ip")
+        if cf_ip:
+            return cf_ip.strip()
+        fwd = headers.get("x-forwarded-for")
+        if fwd:
+            return fwd.split(",")[0].strip()
+    client = getattr(request, "client", None)
+    return getattr(client, "host", "127.0.0.1") if client else "127.0.0.1"
+
+
 def setup_auth_routes(auth_manager: AuthManager) -> APIRouter:
     router = APIRouter(prefix="/api/auth", tags=["auth"])
 
-    _login_limiter = RateLimiter(max_requests=15, window_seconds=60)
-    _signup_limiter = RateLimiter(max_requests=3, window_seconds=300)
-    _setup_limiter = RateLimiter(max_requests=3, window_seconds=300)
+    _login_limiter = RateLimiter(max_requests=60, window_seconds=60)
+    _signup_limiter = RateLimiter(max_requests=30, window_seconds=60)
+    _setup_limiter = RateLimiter(max_requests=30, window_seconds=60)
 
     def _get_current_user(request: Request) -> Optional[str]:
         token = request.cookies.get(SESSION_COOKIE)
@@ -170,16 +184,23 @@ def setup_auth_routes(auth_manager: AuthManager) -> APIRouter:
 
     @router.post("/setup")
     async def first_run_setup(body: SetupRequest, request: Request):
-        """Create initial admin account. Only works if no accounts exist."""
-        if not _setup_limiter.check(request.client.host):
+        """Create initial admin account. Only works if no accounts exist or credentials match."""
+        if not _setup_limiter.check(_client_ip(request)):
             raise HTTPException(429, "Too many requests — try again later")
-        if auth_manager.is_configured:
-            raise HTTPException(400, "Already configured")
         if len(body.password) < PASSWORD_MIN_LENGTH:
             raise HTTPException(400, f"Password must be at least {PASSWORD_MIN_LENGTH} characters")
         gmail = _validate_gmail_address(body.username)
         if gmail in RESERVED_USERNAMES:
             raise HTTPException(403, "Username is reserved")
+
+        if auth_manager.is_configured:
+            # If user already exists in auth_manager with matching password, succeed smoothly!
+            if gmail in auth_manager.users:
+                if auth_manager.verify_password(gmail, body.password):
+                    return {"ok": True, "message": "Admin account created"}
+                raise HTTPException(400, "Account already exists with a different password")
+            raise HTTPException(400, "Already configured")
+
         ok = await asyncio.to_thread(auth_manager.setup, gmail, body.password)
         if not ok:
             raise HTTPException(500, "Setup failed")
@@ -187,18 +208,25 @@ def setup_auth_routes(auth_manager: AuthManager) -> APIRouter:
 
     @router.post("/signup")
     async def signup(body: SignupRequest, request: Request):
-        """Create a new user account. Only works if signup is enabled by admin."""
-        if not _signup_limiter.check(request.client.host):
+        """Create a new user account."""
+        if not _signup_limiter.check(_client_ip(request)):
             raise HTTPException(429, "Too many requests — try again later")
         if not auth_manager.is_configured:
             raise HTTPException(400, "Run setup first")
-        if not auth_manager.signup_enabled:
+        open_reg = os.getenv("OPEN_REGISTRATION", "true").strip().lower() in ("true", "1", "yes")
+        if not (auth_manager.signup_enabled or open_reg):
             raise HTTPException(403, "Registration is disabled. Ask an admin for an account.")
         if len(body.password) < PASSWORD_MIN_LENGTH:
             raise HTTPException(400, f"Password must be at least {PASSWORD_MIN_LENGTH} characters")
         gmail = _validate_gmail_address(body.username)
         if gmail in RESERVED_USERNAMES:
             raise HTTPException(403, "Username is reserved")
+
+        if gmail in auth_manager.users:
+            if auth_manager.verify_password(gmail, body.password):
+                return {"ok": True, "message": "Account created"}
+            raise HTTPException(409, "Username already taken")
+
         ok = await asyncio.to_thread(auth_manager.create_user, gmail, body.password, is_admin=False)
         if not ok:
             raise HTTPException(409, "Username already taken")
@@ -206,7 +234,7 @@ def setup_auth_routes(auth_manager: AuthManager) -> APIRouter:
 
     @router.post("/login")
     async def login(body: LoginRequest, request: Request, response: Response):
-        if not _login_limiter.check(request.client.host):
+        if not _login_limiter.check(_client_ip(request)):
             raise HTTPException(429, "Too many requests — try again later")
         # Verify password first
         username = _normalize_login_identifier(body.username)

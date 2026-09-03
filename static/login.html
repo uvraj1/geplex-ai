@@ -7,9 +7,9 @@
 <link rel="icon" type="image/x-icon" href="/favicon.ico">
 <link rel="shortcut icon" href="/favicon.ico">
 <link rel="icon" type="image/svg+xml" href="/assets/branding/geplex-logo.svg">
-<link rel="icon" type="image/png" sizes="192x192" href="/assets/branding/geplex-logo-192.png">
+<link rel="icon" type="png" sizes="192x192" href="static/icons/icon-192.png">
 <link rel="manifest" href="static/manifest.json">
-<link rel="apple-touch-icon" href="/assets/branding/geplex-logo-192.png">
+<link rel="apple-touch-icon" href="static/icons/icon-192.png">
 <script src="static/deployment-config.js"></script>
 <script src="static/deployment.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
@@ -366,14 +366,22 @@
     if (_rem) localStorage.setItem('geplex-last-user', userVal);
     else localStorage.removeItem('geplex-last-user');
     sessionStorage.removeItem('gplx-session-active');
+    localStorage.setItem('geplex-auth-user', userVal);
+    if (!localStorage.getItem('geplex-firebase-user')) {
+      localStorage.setItem('geplex-firebase-user', JSON.stringify({
+        uid: 'geplex-' + Date.now(),
+        email: userVal.includes('@') ? userVal : userVal + '@geplex-ai.com',
+        displayName: userVal
+      }));
+    }
     if (submitBtn) {
       submitBtn.innerHTML = '<span class="login-spinner" aria-hidden="true"></span>';
       submitBtn.disabled = true;
     }
     Promise.all([
-      fetch(appUrl('/api/sessions'), { credentials: 'same-origin' }).then(r => r.ok ? r.json() : []).catch(() => []),
-      fetch(appUrl('/api/auth/features'), { credentials: 'same-origin' }).then(r => r.ok ? r.json() : {}).catch(() => ({})),
-      fetch(appUrl('/api/auth/settings'), { credentials: 'same-origin' }).then(r => r.ok ? r.json() : {}).catch(() => ({})),
+      fetch(appUrl('/api/sessions'), { credentials: 'include' }).then(r => r.ok ? r.json() : []).catch(() => []),
+      fetch(appUrl('/api/auth/features'), { credentials: 'include' }).then(r => r.ok ? r.json() : {}).catch(() => ({})),
+      fetch(appUrl('/api/auth/settings'), { credentials: 'include' }).then(r => r.ok ? r.json() : {}).catch(() => ({})),
     ]).then(([sess, feat, sett]) => {
       sessionStorage.setItem('gplx-prefetch-sessions', JSON.stringify(sess || []));
       sessionStorage.setItem('gplx-prefetch-features', JSON.stringify(feat || {}));
@@ -473,9 +481,9 @@
 
   // Check auth status and fetch policy in parallel, but don't block the
   // authenticated redirect on the policy response.
-  const policyPromise = fetch(appUrl('/api/auth/policy'), { credentials: 'same-origin' }).catch(() => null);
+  const policyPromise = fetch(appUrl('/api/auth/policy'), { credentials: 'include' }).catch(() => null);
   try {
-    const statusRes = await fetch(appUrl('/api/auth/status'), { credentials: 'same-origin' });
+    const statusRes = await fetch(appUrl('/api/auth/status'), { credentials: 'include' });
     if (statusRes.ok) {
       const data = await statusRes.json();
       if (data && data.authenticated) {
@@ -522,14 +530,14 @@
         const res = await fetch(appUrl('/api/auth/login'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          credentials: 'same-origin',
+          credentials: 'include',
           body: JSON.stringify({ username, password, remember, totp_code: code })
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.detail || 'Invalid code');
         if (!data.ok) throw new Error('Login failed');
         form._totpMode = false;
-        finishLogin();
+        finishLogin(username);
       } catch (err) {
         errEl.textContent = err.message;
         errEl.style.display = 'block';
@@ -569,13 +577,15 @@
 
     // Setup or signup first (try backend only if local or custom backend configured)
     const isCloudflarePages = window.location.hostname.includes('pages.dev');
-    if ((mode === 'setup' || mode === 'signup') && !isCloudflarePages) {
+    const hasRemoteBackend = !!window.__GEPLEX_API_BASE;
+    const hasBackend = !isCloudflarePages || hasRemoteBackend;
+    if ((mode === 'setup' || mode === 'signup') && hasBackend) {
       const endpoint = mode === 'setup' ? appUrl('/api/auth/setup') : appUrl('/api/auth/signup');
       try {
         const res = await fetch(endpoint, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          credentials: 'same-origin',
+          credentials: 'include',
           body: JSON.stringify({ username, password })
         });
         if (res.ok) {
@@ -583,7 +593,11 @@
         } else if (res.status !== 404 && res.status !== 405 && res.status !== 502) {
           let msg = 'Account creation failed';
           try { const d = await res.json(); msg = d.detail || msg; } catch(_) {}
-          throw new Error(msg);
+          if (mode === 'setup' && msg.toLowerCase().includes('already configured')) {
+            // Already configured backend - proceed directly to login smoothly
+          } else {
+            throw new Error(msg);
+          }
         }
       } catch (err) {
         if (!err.message.includes('fetch') && !err.message.includes('JSON')) {
@@ -610,7 +624,7 @@
           const res = await fetch(appUrl('/api/auth/login'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            credentials: 'same-origin',
+            credentials: 'include',
             body: JSON.stringify(loginBody)
           });
           if (res.ok) {
