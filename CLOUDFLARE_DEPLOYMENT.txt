@@ -1,0 +1,39 @@
+Cloudflare Pages deployment
+==========================
+
+1. Deploy the GepLex backend separately (a VPS, container host, or managed
+   Python service) and note its HTTPS URL.
+2. In PowerShell, set the URL before running START_BOT.bat:
+     $env:GEPLEX_API_URL = "https://api.example.com"
+     .\START_BOT.bat
+3. Upload `geplex-cloudflare-upload.zip` from the repository root to Cloudflare
+   Pages. The build script also leaves the equivalent `dist\` folder for local
+   inspection or folder upload.
+4. On the backend, set:
+     ALLOWED_ORIGINS=https://your-pages-domain.pages.dev
+5. Install the optional backend dependency:
+     pip install firebase-admin
+6. Configure Firebase Admin credentials on the backend using
+   GOOGLE_APPLICATION_CREDENTIALS or the hosting provider's secret manager.
+   Alternatively, set the complete service-account JSON in the secret
+   `GEPLEX_FIREBASE_SERVICE_ACCOUNT_JSON` (never in the frontend bundle).
+7. The Firebase web configuration is already included in the public client
+   configuration. To use a different Firebase project, set the JSON before
+   building (this web config is public Firebase configuration, not a
+   service-account secret):
+     $env:GEPLEX_FIREBASE_CONFIG_JSON = '{"apiKey":"...","authDomain":"...","projectId":"...","appId":"..."}'
+8. Keep Firebase configuration in the backend/hosting secret manager. Do not
+   put service-account JSON or private keys in `dist\` or the repository.
+
+Realtime Database note:
+- `databaseURL` is included in the public web config, but the current GepLex
+   chat, memory, and session stores remain on the backend (SQLite/JSON).
+- Realtime Database writes must be implemented behind authenticated backend
+   routes; do not put Firebase Admin credentials in the frontend.
+- Before enabling a sync, decide which data is allowed to leave the backend
+   (for example, preferences only versus conversations and memory), then set
+   `GEPLEX_FIREBASE_SERVICE_ACCOUNT_JSON` or `GOOGLE_APPLICATION_CREDENTIALS`
+   on the backend and configure restrictive Realtime Database rules.
+
+Cloudflare Pages hosts the frontend only. Login, chat, storage, and AI
+operations continue to run through the configured backend API.

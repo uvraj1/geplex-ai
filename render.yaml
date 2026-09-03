@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: geplex-api
+    runtime: python
+    buildCommand: "pip install --upgrade pip && pip install -r requirements.txt"
+    startCommand: "uvicorn app:app --host 0.0.0.0 --port $PORT"
+    plan: free
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: APP_ENV
+        value: production
+      - key: APP_BIND
+        value: "0.0.0.0"
+      - key: GEPLEX_ALLOW_CORS
+        value: "true"

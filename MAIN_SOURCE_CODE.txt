@@ -1,0 +1,20 @@
+GepLex main source boundary
+===========================
+
+This repository root is the editable master source for GepLex.
+
+Main source folders:
+  src\
+  routes\
+  static\
+  services\
+  core\
+  config\
+  scripts\
+
+Generated applications are intentionally isolated under:
+  applications\desktop\
+  applications\android\
+
+The application build bots are scoped to those output folders and must not
+delete, move, or rewrite the main source folders above.
