@@ -567,8 +567,9 @@
       }
     }
 
-    // Setup or signup first (try backend, allow Firebase fallback)
-    if (mode === 'setup' || mode === 'signup') {
+    // Setup or signup first (try backend only if local or custom backend configured)
+    const isCloudflarePages = window.location.hostname.includes('pages.dev');
+    if ((mode === 'setup' || mode === 'signup') && !isCloudflarePages) {
       const endpoint = mode === 'setup' ? appUrl('/api/auth/setup') : appUrl('/api/auth/signup');
       try {
         const res = await fetch(endpoint, {
@@ -579,7 +580,7 @@
         });
         if (res.ok) {
           await res.json();
-        } else if (res.status !== 404 && res.status !== 502) {
+        } else if (res.status !== 404 && res.status !== 405 && res.status !== 502) {
           let msg = 'Account creation failed';
           try { const d = await res.json(); msg = d.detail || msg; } catch(_) {}
           throw new Error(msg);

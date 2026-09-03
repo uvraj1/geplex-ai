@@ -47,16 +47,12 @@ _GMAIL_ADDRESS_RE = re.compile(
 
 
 def _validate_gmail_address(value: str) -> str:
-    """Normalize and validate the required Gmail login identifier."""
+    """Normalize and validate the login identifier (username or email)."""
     address = (value or "").strip().lower()
-    local, separator, domain = address.rpartition("@")
-    if (
-        not separator
-        or domain != "gmail.com"
-        or not _GMAIL_ADDRESS_RE.fullmatch(address)
-        or ".." in local
-    ):
-        raise HTTPException(400, "Use a valid Gmail address ending in @gmail.com")
+    if not address or len(address) < 2:
+        raise HTTPException(400, "Username must be at least 2 characters")
+    if len(address) > 128 or any(char.isspace() for char in address):
+        raise HTTPException(400, "Enter a valid username or email without spaces")
     return address
 
 
