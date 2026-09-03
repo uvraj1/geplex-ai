@@ -2129,7 +2129,11 @@ function initAccount() {
       // Keep "geplex-last-user" so the login form remembers the username
       // (if "Remember me" was on).
       try {
-        const _keepKeys = new Set(['geplex-last-user', 'geplex-theme']);
+        if (window.firebase && firebase.apps && firebase.apps.length) {
+          try { await firebase.auth().signOut(); } catch(_) {}
+        }
+        localStorage.removeItem('geplex-firebase-user');
+        const _keepKeys = new Set(['geplex-theme']);
         const _toRemove = [];
         for (let i = 0; i < localStorage.length; i++) {
           const k = localStorage.key(i);
@@ -2139,7 +2143,7 @@ function initAccount() {
         sessionStorage.clear();
       } catch (_) {}
       document.cookie = 'geplex_session=; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:01 GMT; SameSite=Lax;';
-      window.location.replace('/login');
+      window.location.replace('/login.html');
     });
   }
 }

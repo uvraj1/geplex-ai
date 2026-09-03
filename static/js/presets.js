@@ -501,6 +501,9 @@ function initSaveAsTemplate() {
 export async function loadPresets(showError) {
   try {
     const res = await fetch(`${API_BASE}/api/presets`);
+    if (!res.ok) {
+      return;
+    }
     presets = await res.json();
 
     const custom = presets.custom;
@@ -528,10 +531,7 @@ export async function loadPresets(showError) {
     }
     setTimeout(() => { _syncCharIndicator(); }, 0);
   } catch (error) {
-    console.error('Failed to load presets:', error);
-    if (showError) {
-      showError('Failed to load presets');
-    }
+    console.debug('Failed to load presets:', error);
   }
 }
 

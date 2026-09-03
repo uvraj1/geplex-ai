@@ -24,6 +24,15 @@
   <script nonce="{{CSP_NONCE}}">
   window._geplexLoadTime = Date.now();
   (function(){
+    // Cloudflare Pages Auth Gate: enforce login before viewing workspace!
+    if (window.location.hostname.includes('pages.dev')) {
+      var fbUser = localStorage.getItem('geplex-firebase-user');
+      var lastUser = localStorage.getItem('geplex-last-user');
+      if (!fbUser && !lastUser) {
+        window.location.replace('/login.html');
+        return;
+      }
+    }
     try {
       var t = JSON.parse(localStorage.getItem('geplex-theme'));
       if (t && t.colors) {
