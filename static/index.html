@@ -27,8 +27,7 @@
     // Cloudflare Pages Auth Gate: enforce login before viewing workspace!
     if (window.location.hostname.includes('pages.dev')) {
       var fbUser = localStorage.getItem('geplex-firebase-user');
-      var lastUser = localStorage.getItem('geplex-last-user');
-      if (!fbUser && !lastUser) {
+      if (!fbUser) {
         window.location.replace('/login.html');
         return;
       }

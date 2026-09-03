@@ -93,7 +93,7 @@ def build_cloudflare_dist():
   Referrer-Policy: strict-origin-when-cross-origin
 
 /static/*
-  Cache-Control: public, max-age=3600
+  Cache-Control: no-cache, no-store, must-revalidate
 
 /assets/*
   Cache-Control: public, max-age=86400
